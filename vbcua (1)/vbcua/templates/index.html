@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VBCUA — Voice-Based Concept Understanding Analyser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<div class="console">
+
+  <!-- Faceplate header -->
+  <header class="faceplate-top">
+    <div class="rack-screws"><span></span><span></span><span></span><span></span></div>
+    <div class="nameplate">
+      <span class="nameplate-eyebrow">Console Model</span>
+      <h1 class="nameplate-title">VBCUA <span class="model-no">MK.1</span></h1>
+      <span class="nameplate-sub">Voice-Based Concept Understanding Analyser</span>
+    </div>
+    <div class="power-indicator">
+      <span class="power-dot"></span>
+      <span class="power-label">Standing By</span>
+    </div>
+  </header>
+
+  <main class="rack">
+
+    <!-- Module 1: Input channel -->
+    <section class="module" aria-labelledby="mod1-title">
+      <div class="module-head">
+        <span class="module-tag">CH.01</span>
+        <h2 id="mod1-title">Input &amp; Reference</h2>
+      </div>
+
+      <div class="slot">
+        <label class="slot-label" for="conceptSelect">Reference Concept</label>
+        <select id="conceptSelect" class="recessed-input">
+          {% for c in concepts %}
+          <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+          <option value="__custom__">Custom concept…</option>
+        </select>
+      </div>
+
+      <div id="customConceptWrap" class="slot hidden">
+        <label class="slot-label" for="customReference">Custom Reference Explanation</label>
+        <textarea id="customReference" class="recessed-input" rows="4" placeholder="Paste the ideal / expected explanation of your concept here..."></textarea>
+      </div>
+
+      <div class="slot">
+        <label class="slot-label" for="audioFile">Load Audio Tape</label>
+        <div class="file-slot">
+          <input type="file" id="audioFile" accept="audio/*" />
+          <span class="file-slot-hint">.wav · .mp3 · .m4a</span>
+        </div>
+      </div>
+
+      <div id="playerWrap" class="tape-deck hidden">
+        <audio id="audioPlayer" controls></audio>
+        <canvas id="waveformCanvas" height="86"></canvas>
+      </div>
+
+      <button id="evaluateBtn" class="console-btn" disabled>
+        <span class="btn-led"></span>
+        Run Evaluation
+      </button>
+      <p id="statusMsg" class="status-msg"></p>
+    </section>
+
+    <!-- Module 2: Output / metering -->
+    <section id="resultsPanel" class="module results-module hidden" aria-labelledby="mod2-title">
+      <div class="module-head">
+        <span class="module-tag">CH.02</span>
+        <h2 id="mod2-title">Evaluation Readout</h2>
+      </div>
+
+      <div class="meter-row">
+        <div class="vu-meter">
+          <svg viewBox="0 0 200 118" class="vu-svg">
+            <path d="M 20 100 A 80 80 0 0 1 180 100" class="vu-track vu-zone-red" />
+            <path d="M 47 41 A 80 80 0 0 1 153 41" class="vu-track vu-zone-amber" />
+            <path d="M 82 21 A 80 80 0 0 1 118 21" class="vu-track vu-zone-green" />
+            <g id="vuNeedleGroup" style="transform-origin: 100px 100px;">
+              <line x1="100" y1="100" x2="100" y2="30" class="vu-needle" />
+              <circle cx="100" cy="100" r="6" class="vu-hub" />
+            </g>
+          </svg>
+          <div class="vu-labels">
+            <span>POOR</span><span>MODERATE</span><span>STRONG</span>
+          </div>
+        </div>
+        <div class="meter-readout">
+          <span class="readout-value" id="scoreValue">--</span>
+          <span class="readout-unit">/ 100 COMPREHENSION</span>
+          <span class="classification" id="classificationLabel">STANDBY</span>
+          <span class="concept-label">Concept: <span id="conceptLabel">—</span></span>
+        </div>
+      </div>
+
+      <div class="fader-bank">
+        <div class="fader-channel" data-metric="semantic">
+          <span class="fader-value" id="semanticScore">--%</span>
+          <div class="fader-track"><div class="fader-fill" id="semanticFill"></div><div class="fader-cap" id="semanticCap"></div></div>
+          <span class="fader-label">Semantic<br/>Match</span>
+        </div>
+        <div class="fader-channel" data-metric="filler">
+          <span class="fader-value" id="fillerRatio">--%</span>
+          <div class="fader-track"><div class="fader-fill" id="fillerFill"></div><div class="fader-cap" id="fillerCap"></div></div>
+          <span class="fader-label">Filler<br/>Words</span>
+        </div>
+        <div class="fader-channel" data-metric="pause">
+          <span class="fader-value" id="pauseRatio">--%</span>
+          <div class="fader-track"><div class="fader-fill" id="pauseFill"></div><div class="fader-cap" id="pauseCap"></div></div>
+          <span class="fader-label">Pause<br/>Ratio</span>
+        </div>
+        <div class="lcd-readout">
+          <span class="lcd-label">RMS Energy</span>
+          <span class="lcd-value" id="rmsEnergy">0.000</span>
+        </div>
+      </div>
+
+      <div class="tape-log">
+        <h3><span class="module-tag small">LOG</span> Transcript</h3>
+        <p id="transcriptText" class="tape-log-text"></p>
+      </div>
+
+      <div class="tape-log">
+        <h3><span class="module-tag small">TAGS</span> Filler Word Breakdown</h3>
+        <div id="fillerBreakdown" class="patch-tags"></div>
+      </div>
+
+      <div class="tape-log">
+        <h3><span class="module-tag small">NOTE</span> AI-Generated Feedback</h3>
+        <p id="aiSummary" class="tape-log-text"></p>
+      </div>
+
+      <a id="downloadPdfBtn" class="console-btn secondary" href="#" download>
+        <span class="btn-led"></span>
+        Print Report (PDF)
+      </a>
+    </section>
+
+  </main>
+
+  <footer class="faceplate-bottom">
+    <div class="rack-screws"><span></span><span></span><span></span><span></span></div>
+    <p>SIGNAL PATH — INPUT → SPEECH-TO-TEXT → SEMANTIC ANALYSIS → SCORING → REPORT OUT</p>
+  </footer>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
